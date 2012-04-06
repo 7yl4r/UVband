@@ -6,34 +6,49 @@
 //#include "io430.h"
 
 //=== function prototypes ====================================================
-void configClocks();
-void configPorts();
-
 void readButton();
 void readSensor();
 
-void displayTot(float value);
-void displayValue(float value);
+void display(float value);
 
 void delay(unsigned long amount);
 void blink();
+void fadeOff();
 
 //=== constants =============================================================
-const unsigned long countsUntilReset = 10000000; //TODO: scale this to 24 hrs
-const int nModes = 1;   //number of display modes (counting from 0)
+//For 24 reset loop:
+const unsigned long countsUntilReset = 840000; //assuming 1 cycle through 
+//for sensor reading:
+const int sensorSamples = 8315; /*number of samples to take when reading sensor
+NOTE: this value has been experimentally determined to be the number of samples
+which are taken by the ReadSensor() function in ~.1s 
+This value was chosen because the minmum sensor output is 10Hz
+Due to this behavior, read frequencies are (approximately) in decaHertz*/
+float freqScaler = 0.003;  /*used to scale output frequency
+NOTE: this value chosen experimentally to allow for one/two lights to be on at 
+the end of a day spent under flourescent light*/
+//for button reading:
+const int nButtonSamples = 5;
+const int deltaT = 10;  //time between samples
+//for display:
+const int nDisplayLoops = 50; //number of loops display stays on after activation
 
 //=== global vars ===========================================================
 unsigned long count = 0;  //number of loops completed
-float total = 0;      //sensor readings integrated over time
-float sensorValue = 0;  
-int mode = 0;  //used to select display mode (real-time or integrated)
+float total = 0;      //sensor readings integrated over time [ kHz/<#hrs_since_reset> ]
+float sensorValue = 0;  //last read value from sensor [ DHz ]
+int buttonSamples[nButtonSamples+1];  //button samples for debounce
 bool buttonState = 0;  //button open(false) or depressed(true)
+int displayLoopsLeft = nDisplayLoops; //display is on whenever displayLoopsLeft > 0
 
 int main( void )
 { 
-  //=== setup ===========
   WDTCTL = WDTPW + WDTHOLD; // Stop watchdog timer to prevent timeout reset
-  configPorts();
+  //CONFIGURE PORTS:
+  //config onboard LED on P1.0
+  P1DIR = 0x3F;   // set pins 1-6 for output, 7&8 for input
+  P1REN = 0x80;  //set pin 8 (button) to use pull-down resistor
+  P1OUT = 0x00;  //everything in P1 OFF, pull-(up/down) on 8 set to down
   
   //cycle LEDs to show successful startup
   for(int i = 3; i > 0; i--){
@@ -50,15 +65,13 @@ int main( void )
    P1OUT = 0x01;  //pin 1.0 on (onboard LED)
   }
   
-  //turn on onboard (power light) also for use as button input
-  P1OUT = 0x01;  //pin 1.0 on (onboard LED)
-  
   //=== mainloop =============================================================
   while(1){
     //timer resets system every 24hrs
       if(count > countsUntilReset){
         WDTCTL = 0; //restart
       } //implied else
+      count++;
 
       readButton();
       if(buttonState == true){  //if button pressed, count amount of time held
@@ -67,52 +80,39 @@ int main( void )
         do{ 
           readButton();
           onCount++;
-          if(onCount > 1000){ //if held a long time
+          if(onCount > 10000){ //if held a long time
             WDTCTL = 0; //restart
           } //implied else
         } while(buttonState == true);
-        //if just pressed & released toggle mode
-          mode++;
-          if(mode > nModes){
-            mode = 0;
-          }
-      } 
+        //if button pressed & released
+          displayLoopsLeft = nDisplayLoops;
+      }
  
-      //P1OUT ^= 0x01; //toggle P1.0
      readSensor();
     
     //add sensor reading to total
-      total += sensorValue;     //TODO: change this line to scale down total
+      float freqScaler = 0.01;  //scales down total to kHz
+      total += sensorValue*freqScaler;
     
-    //update display
-    switch ( mode ) {
-      case 0:
-        displayTot(total);
-        break;
-      case 1:
-        displayValue(sensorValue);
-        break;
-      default:
-        blink();
+    if(displayLoopsLeft > 0){
+      //onboard LED on
+      P1OUT |= 0x01;
+      //update display 
+      displayLoopsLeft--;
+      display(total);
+      //fade off display if time is up
+      if(displayLoopsLeft == 0){
+        fadeOff();
+        displayLoopsLeft = -1;
+      }
     }
-    count++;
   }
   
    //this unreachable line puts the MSP430 into low-power 4 (just in case)
   __bis_SR_register(LPM4_bits + GIE);
 }
 
-void configPorts(){
-  //config onboard LED on P1.0
-  P1DIR = 0x3F;   // set pins 1-6 for output, 7&8 for input
-  P1OUT = 0x00;  //everything in P1 OFF
-  return;
-}
-
 void readButton(){
-  const int nButtonSamples = 3;
-  int buttonSamples[nButtonSamples+1];  //button samples for debounce
-  int deltaT = 10;  //time between samples
   bool sameFlag = true; //flag for all samples have same value
   //take samples at interval for compare (debounce)
   buttonSamples[0] = P1IN & 0x80;
@@ -134,13 +134,12 @@ void readButton(){
 }
 
 void readSensor(){     /*returns frequency reading from sensor*/
-  long n = 0;   //number of signal on/off and off/on changes read
+  int n = 0;   //number of signal on/off and off/on changes read
   int lastRead = 0;
-  float freqScaler = .005;  //used to scale read frequency
   //initial read
   int thisRead = P1IN & 0x40;
   //for sample time
-  for(long i = 1000; i > 0; i--){
+  for(int i = sensorSamples; i > 0; i--){
     lastRead = thisRead;  //push back previous read
     thisRead = P1IN & 0x40; //read sensor
     if(thisRead != lastRead){
@@ -151,16 +150,15 @@ void readSensor(){     /*returns frequency reading from sensor*/
   return;
 }
 
-void displayTot(float value){  /*updates display with value*/
-  //TODO: add display update code here
-  float bin0 = 500;  //no LEDS on iff lower than bin0
-  float bin1 = 1000;
-  float bin2 = 1500;
-  float bin3 = 2000;
-  float bin4 = 2500; //higher than bin4 means all LEDS on 
+void display(float value){  /*updates display with value*/
+  float bin0 = 50000;  //no LEDS on iff lower than bin0
+  float bin1 = 100000;
+  float bin2 = 150000;
+  float bin3 = 200000;
+  float bin4 = 250000; //higher than bin4 means all LEDS on 
   if(value < bin0){
     P1OUT = 0x00;
-  } else if(value <bin1){
+  }else if(value < bin1){
     P1OUT = 0x02;
   }else if(value < bin2){
     P1OUT = 0x06;
@@ -171,33 +169,6 @@ void displayTot(float value){  /*updates display with value*/
   }else{
     P1OUT = 0x3E;
   }
-  //turn P1.0 (onboard) back on
-  P1OUT |= 0x01;
-  return;
-}
-
-void displayValue(float value){  /*updates display with value*/
-  //TODO: add display update code here
-  float bin0 = 1;  //no LEDS on iff lower than bin0
-  float bin1 = 2;
-  float bin2 = 3;
-  float bin3 = 4;
-  float bin4 = 5;  //higher than bin4 means all LEDS on
-  if(value < bin0){
-    P1OUT = 0x00;
-  } else if(value <bin1){
-    P1OUT = 0x02;
-  }else if(value < bin2){
-    P1OUT = 0x06;
-  }else if(value < bin3){
-    P1OUT = 0x0E;
-  }else if(value < bin4){
-    P1OUT = 0x1E;
-  }else{
-    P1OUT |= 0x3E;
-  }
-  //turn P1.0 (onboard) back on
-  P1OUT |= 0x01;
   return;
 }
 
@@ -210,7 +181,24 @@ void delay(unsigned long amount){
 
 void blink(){
   P1OUT = 0xFF;
-  delay (20000);
+  delay (2000);
   P1OUT = 0x00;
-  delay (20000);
+  delay (2000);
+}
+
+void fadeOff(){   //fade using crude PWM
+  int P1state = P1OUT;
+  int nOn = 500;
+  int nOff = 0;
+  for(int i = nOn + nOff; i > 0; i--){
+    nOn --;
+    nOff ++;
+    //turn off
+    P1OUT = 0x00;
+    delay(nOff);
+    //turn on
+    P1OUT = P1state;
+    delay(nOn);
+  }
+  P1OUT = 0x00;
 }
