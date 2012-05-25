@@ -225,9 +225,6 @@ __interrupt void Timer_A(void){
 __interrupt void Port_1(void){
   //TODO: handle the button press here
   
-  //test blink when pressed
-  P1OUT  = (LED0 + LED1 + LED2 + LED3 + LED4) & P1OUTMASK; // P1 toggle
-  
   readButton();
 
  /*
@@ -238,6 +235,9 @@ __interrupt void Port_1(void){
   */
   
   if(buttonState == true){  //if button pressed, count amount of time held
+    //test blink when pressed
+    P1OUT  = (LED0 + LED1 + LED2 + LED3 + LED4) & P1OUTMASK; // P1 toggle
+    
       //count time button is held
       long onCount = 0;
       do{ 
