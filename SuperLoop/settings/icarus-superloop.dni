@@ -1,5 +1,5 @@
 [DebugChecksum]
-Checksum=1599282505
+Checksum=660271832
 [Stack]
 FillEnabled=0
 OverflowWarningsEnabled=1
@@ -36,29 +36,14 @@ ActionState=1
 Enabled=0
 ShowSource=1
 [State Storage]
-Control Register=-1
+Control Register=0
 [Sequencer]
-Control Register=-1
-NextState0=-1
-NextState1=-1
+Control Register=0
+NextState0=0
+NextState1=0
 [Action Register]
-Break=-1
-State Storage=-1
-[TermIOLog]
-LoggingEnabled=_ 0
-LogFile=_ ""
-[CallStackLog]
-Enabled=0
-[DriverProfiling]
-Enabled=0
-Mode=0
-Graph=0
-Symbiont=0
-Exclusions=
-[Log file]
-LoggingEnabled=_ 0
-LogFile=_ ""
-Category=_ 0
+Break=2
+State Storage=2
 [Breakpoints]
 Count=0
 [FET]
@@ -81,6 +66,22 @@ SP=0
 SR=0
 all registers=0
 File name=
+[Log file]
+LoggingEnabled=_ 0
+LogFile=_ ""
+Category=_ 0
+[TermIOLog]
+LoggingEnabled=_ 0
+LogFile=_ ""
 [Aliases]
-Count=0
+A0=_ "C:\Users\tylarmurray\Documents\Icarus\main.cpp" "C:\Users\7yl4r\UVband\SuperLoop\main.cpp"
+Count=1
 SuppressDialog=0
+[CallStackLog]
+Enabled=0
+[DriverProfiling]
+Enabled=0
+Mode=0
+Graph=0
+Symbiont=0
+Exclusions=
