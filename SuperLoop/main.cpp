@@ -14,7 +14,7 @@
 #define LED3 0x10
 #define LED4 0x20
 
-int P1OUTMASK = SENSOR_ENABLE_BIT + LED0 + LED1 + LED2 + LED3 + LED4; 
+const int P1OUTMASK = SENSOR_ENABLE_BIT + LED0 + LED1 + LED2 + LED3 + LED4; 
 
 //=== function prototypes ====================================================
 void readButton();
@@ -27,7 +27,7 @@ void fade(int nOn, int nOff);
 
 //=== constants =============================================================
 //For 24 reset loop:
-const unsigned int countsUntilReset = 8400; //assuming 1 cycle through 
+const int countsUntilReset = 8400; //assuming 1 cycle through 
 
 //for sensor reading:
 const int sensorSamples = 8315; /*number of samples to take when reading sensor
@@ -36,7 +36,7 @@ which are taken by the ReadSensor() function in ~.1s
 This value was chosen because the minmum sensor output is 10Hz
 Due to this behavior, read frequencies are (approximately) in decaHertz*/
 
-float freqScaler = 1.0;/*0.003;  /*used to scale output frequency
+const float freqScaler = 1.0;/*used to scale output frequency
 NOTE: this value chosen experimentally to allow for one/two lights to be on at 
 the end of a day spent under flourescent light*/
 
@@ -48,10 +48,10 @@ const int deltaT = 1;  //time between samples
 const int nDisplayLoops = 10; //number of loops display stays on after activation
 
 //=== global vars ===========================================================
-unsigned long count = 0;  //number of loops completed
+unsigned int count = 0;  //number of loops completed
 float total = 0;      //sensor readings integrated over time [ kHz/<#hrs_since_reset> ]
 float sensorValue = 0;  //last read value from sensor [ DHz ]
-int buttonSamples[nButtonSamples+1];  //button samples for debounce
+short buttonSamples[nButtonSamples+1];  //button samples for debounce
 bool buttonState = 0;  //button open(false) or depressed(true)
 int displayLoopsLeft = nDisplayLoops; //display is on whenever displayLoopsLeft > 0
 
@@ -130,12 +130,12 @@ void readSensor(){     //returns frequency reading from sensor
 }
 
 void display(float value){  //updates display with value
-  float bin0 = 1000;  //no LEDS on iff lower than bin0
-  float bin1 = 2000;
-  float bin2 = 3000;
-  float bin3 = 4000;
-  float bin4 = 5000; //higher than bin4 means all LEDS on
-  if(value < bin0){
+  float bin0 = 100;  //no LEDS on iff lower than bin0
+  float bin1 = 200;
+  float bin2 = 300;
+  float bin3 = 400;
+  float bin4 = 500; //higher than bin4 means all LEDS on
+  if(value < bin0){+
     P1OUT = LED0 & P1OUTMASK;
   }else if(value < bin1){
     P1OUT = (LED0 + LED1) & P1OUTMASK;
@@ -208,7 +208,7 @@ __interrupt void Timer_A(void){
       //onboard LED on
       //P1OUT |= 0x01;
       //update display 
-      displayLoopsLeft--;
+//TEMPORARY TEST CHANGE THIS SHOULD NOT STAY LIKE THIS IT IS JUST FOR TESTING RIGHT NOW      displayLoopsLeft--;
       display(total);
       //fade off display if time is up
       if(displayLoopsLeft == 0){
