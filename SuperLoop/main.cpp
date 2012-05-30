@@ -1,4 +1,3 @@
-
 #include <msp430f2013.h>
 //other considered headers:
 //#include "msp430.h"
@@ -14,7 +13,7 @@
 #define LED3 0x10
 #define LED4 0x20
 
-const int P1OUTMASK = SENSOR_ENABLE_BIT + LED0 + LED1 + LED2 + LED3 + LED4; 
+const char P1OUTMASK = SENSOR_ENABLE_BIT + LED0 + LED1 + LED2 + LED3 + LED4; 
 
 //=== function prototypes ====================================================
 void readButton();
@@ -27,10 +26,10 @@ void fade(int nOn, int nOff);
 
 //=== constants =============================================================
 //For 24 reset loop:
-const int countsUntilReset = 8400; //assuming 1 cycle through 
+const short countsUntilReset = 8400; //assuming 1 cycle through 
 
 //for sensor reading:
-const int sensorSamples = 8315; /*number of samples to take when reading sensor
+const short sensorSamples = 8315; /*number of samples to take when reading sensor
 NOTE: this value has been experimentally determined to be the number of samples
 which are taken by the ReadSensor() function in ~.1s 
 This value was chosen because the minmum sensor output is 10Hz
@@ -41,21 +40,21 @@ NOTE: this value chosen experimentally to allow for one/two lights to be on at
 the end of a day spent under flourescent light*/
 
 //for button reading:
-const int nButtonSamples = 5;
-const int deltaT = 1;  //time between samples
+const char nButtonSamples = 5;
+const char deltaT = 1;  //time between samples
 
 //for display:
-const int nDisplayLoops = 10; //number of loops display stays on after activation
+const char nDisplayLoops = 10; //number of loops display stays on after activation
 
 //=== global vars ===========================================================
 unsigned int count = 0;  //number of loops completed
 float total = 0;      //sensor readings integrated over time [ kHz/<#hrs_since_reset> ]
 float sensorValue = 0;  //last read value from sensor [ DHz ]
-short buttonSamples[nButtonSamples+1];  //button samples for debounce
+bool buttonSamples[nButtonSamples+1];  //button samples for debounce
 bool buttonState = 0;  //button open(false) or depressed(true)
-int displayLoopsLeft = nDisplayLoops; //display is on whenever displayLoopsLeft > 0
+char displayLoopsLeft = nDisplayLoops; //display is on whenever displayLoopsLeft > 0
 
-int main( void )
+void main( void )
 { 
   // === STARTUP =======================
   WDTCTL = WDTPW + WDTHOLD; // Stop watchdog timer to prevent timeout reset
@@ -65,7 +64,7 @@ int main( void )
   P1REN = BUTTON_BIT;  //set p1.6 (button) to use pull-down resistor
   P1OUT = 0x00;  //everything in P1 OFF, pull-(up/down)s set to down
   //cycle LEDs to show successful startup
-  for(int i = 3; i > 0; i--){
+  for(char i = 3; i > 0; i--){
    P1OUT = LED4 & P1OUTMASK;  //pin 1.5 on (LED5)
    delay(10000);
    P1OUT = LED3 & P1OUTMASK;  //pin 1.4 on (LED4)
@@ -96,7 +95,7 @@ void readButton(){
   bool sameFlag = true; //flag for all samples have same value
   //take samples at interval for compare (debounce)
   buttonSamples[0] = P1IN & BUTTON_BIT;
-  for(int i = 1; i < nButtonSamples; i++){
+  for(char i = 1; i < nButtonSamples; i++){
     buttonSamples[i] = P1IN & BUTTON_BIT;
     if(buttonSamples[i] != buttonSamples[i-1]){
       sameFlag = false;
@@ -118,7 +117,7 @@ void readSensor(){     //returns frequency reading from sensor
   //initial read
   int thisRead = P1IN & SENSOR_BIT;
   //for sample time
-  for(int i = sensorSamples; i > 0; i--){
+  for(char i = sensorSamples; i > 0; i--){
     lastRead = thisRead;  //push back previous read
     thisRead = P1IN & SENSOR_BIT; //read sensor
     if(thisRead != lastRead){
@@ -130,11 +129,11 @@ void readSensor(){     //returns frequency reading from sensor
 }
 
 void display(float value){  //updates display with value
-  float bin0 = 100;  //no LEDS on iff lower than bin0
-  float bin1 = 200;
-  float bin2 = 300;
-  float bin3 = 400;
-  float bin4 = 500; //higher than bin4 means all LEDS on
+  short bin0 = 100;  //no LEDS on iff lower than bin0
+  short bin1 = 200;
+  short bin2 = 300;
+  short bin3 = 400;
+  short bin4 = 500; //higher than bin4 means all LEDS on
   if(value < bin0){+
     P1OUT = LED0 & P1OUTMASK;
   }else if(value < bin1){
@@ -149,21 +148,20 @@ void display(float value){  //updates display with value
     //flash if value is this high
     P1OUT ^= (LED0 + LED2 + LED4) & P1OUTMASK;
   }
-  
   return;
 }
 
 // very simple, power-wasting delay
 // *NOTE: units of 'amount' is CPU cycles
-void delay(unsigned long amount){ 
-  for(unsigned long i = amount; i > 0; i--);
+void delay(unsigned int amount){ 
+  for(unsigned int i = amount; i > 0; i--);
 }
 
 //fade using crude PWM
 //fade(int initialTimeOn, int endingTimeOn)
-void fade(int nOn, int nOff){   
+void fade(unsigned short nOn, unsigned short nOff){   
   int P1state = P1OUT;
-  for(int i = nOn + nOff; i > 0; i--){
+  for(unsigned short i = nOn + nOff; i > 0; i--){
     nOn --;
     nOff ++;
     //turn off
